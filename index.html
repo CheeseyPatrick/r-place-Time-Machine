@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/place Time Machine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a28;
+      --border: #2a2a3d;
+      --accent: #ff4500;
+      --accent2: #ff6a35;
+      --accent-glow: rgba(255, 69, 0, 0.25);
+      --text: #e8e8f0;
+      --text-dim: #7a7a9a;
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+      --red: #ff4500;
+      --blue: #2350a3;
+      --green: #00a468;
+      --yellow: #ffd636;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scanline overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.07) 2px,
+        rgba(0,0,0,0.07) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Pixel noise bg ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 48px 0 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 12px);
+      grid-template-rows: repeat(5, 12px);
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .logo-grid div {
+      width: 12px;
+      height: 12px;
+      border-radius: 1px;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    h1 span {
+      color: var(--accent);
+      text-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Control panel ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.6;
+    }
+
+    .panel-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+    }
+
+    input[type="date"],
+    input[type="time"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 1rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+      color-scheme: dark;
+    }
+
+    input[type="date"]:focus,
+    input[type="time"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+      padding: 11px 28px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn:hover {
+      background: var(--accent2);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled {
+      background: var(--border);
+      color: var(--text-dim);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* ── Info row ── */
+    .info-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 3px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .badge.active { border-color: var(--accent); color: var(--accent); }
+    .badge.ok { border-color: var(--green); color: var(--green); }
+    .badge.warn { border-color: var(--yellow); color: var(--yellow); }
+    .badge.err { border-color: var(--red); color: var(--red); }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      margin-top: 16px;
+    }
+
+    .progress-bar-track {
+      height: 3px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .progress-text {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .progress-text span { color: var(--text); }
+
+    /* ── Canvas viewer ── */
+    .viewer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .viewer.visible { display: block; }
+
+    .viewer-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .viewer-meta {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .viewer-meta strong { color: var(--text); }
+
+    .viewer-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-sm {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .btn-sm:hover { border-color: var(--accent); background: var(--surface2); }
+
+    .canvas-wrap {
+      position: relative;
+      overflow: auto;
+      max-height: 72vh;
+      background: #111118;
+      cursor: crosshair;
+    }
+
+    #renderCanvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* zoom label */
+    .zoom-badge {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      background: rgba(10,10,15,0.85);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    /* pixel inspector */
+    .pixel-inspector {
+      position: absolute;
+      pointer-events: none;
+      display: none;
+      background: rgba(10,10,15,0.92);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text);
+      white-space: nowrap;
+      z-index: 10;
+      transform: translate(12px, 12px);
+    }
+
+    /* ── Timeline nav ── */
+    .nav-row {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Quick presets ── */
+    .presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .preset-btn {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 3px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    /* ── Error msg ── */
+    .error-msg {
+      background: rgba(255,69,0,0.08);
+      border: 1px solid rgba(255,69,0,0.3);
+      border-radius: 6px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: #ff8060;
+      margin-top: 16px;
+      display: none;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px 0 0;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    footer a { color: var(--text-dim); text-decoration: underline; }
+    footer a:hover { color: var(--accent); }
+
+    /* ── Animations ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .viewer.visible { animation: fadeIn 0.3s ease; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .pulsing { animation: pulse 1.2s ease-in-out infinite; }
+
+    /* ── Tooltip overlay for rate limit ── */
+    .rate-note {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 10px;
+    }
+
+    .rate-note a { color: var(--text-dim); text-decoration: underline; }
+    .rate-note a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <!-- Tiny pixel palette logo -->
+    <div class="logo-grid" id="logoGrid"></div>
+    <h1>r/place <span>Time Machine</span></h1>
+    <p class="subtitle">// rplace.live canvas history viewer //</p>
+  </header>
+
+  <!-- Control panel -->
+  <div class="panel">
+    <div class="panel-label">▸ select a moment in time</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="dateInput">DATE</label>
+        <input type="date" id="dateInput" value="2023-07-01">
+      </div>
+      <div class="input-group" style="max-width: 160px;">
+        <label for="timeInput">TIME (UTC)</label>
+        <input type="time" id="timeInput" value="00:00">
+      </div>
+      <button class="btn" id="goBtn">GO →</button>
+    </div>
+
+    <!-- Quick presets -->
+    <div class="presets" id="presets"></div>
+
+    <!-- Status badges -->
+    <div class="info-row" id="infoRow" style="display:none;">
+      <div class="badge" id="badge-commit"></div>
+      <div class="badge" id="badge-date"></div>
+      <div class="badge" id="badge-size"></div>
+      <div class="badge" id="badge-delta"></div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap" style="display:none;">
+      <div class="progress-text pulsing" id="progressText">Initialising…</div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <p class="rate-note">
+      Uses the GitHub API (unauthenticated: 60 req/hr). Canvas data is fetched live — may be slow for large boards.
+      Recording started <strong>2023-06-30</strong>. Add a <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank">GH token</a> to localStorage key <code>ghToken</code> for higher limits.
+    </p>
+  </div>
+
+  <!-- Canvas viewer -->
+  <div class="viewer" id="viewer">
+    <div class="viewer-header">
+      <div class="viewer-meta" id="viewerMeta"></div>
+      <div class="viewer-controls">
+        <button class="btn-sm" id="zoomOut">− zoom</button>
+        <button class="btn-sm" id="zoomIn">+ zoom</button>
+        <button class="btn-sm" id="zoomFit">fit</button>
+        <button class="btn-sm" id="downloadBtn">↓ png</button>
+      </div>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="renderCanvas"></canvas>
+      <div class="zoom-badge" id="zoomBadge">100%</div>
+      <div class="pixel-inspector" id="pixelInspector"></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-sm" id="prevBtn">← earlier commit</button>
+      <button class="btn-sm" id="nextBtn">later commit →</button>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      canvas data: <a href="https://github.com/rplacelive/canvas1" target="_blank">rplacelive/canvas1</a> ·
+      vibes: <a href="https://rplace.live" target="_blank">rplace.live</a>
+    </p>
+    <p style="margin-top:6px; opacity:0.5;">⚠️ AI vibe coded slop — trust nothing, question everything</p>
+  </footer>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  r/place Time Machine — main.js
+//  AI vibe coded slop. It works until it doesn't.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const REPO  = 'rplacelive/canvas1';
+const API   = 'https://api.github.com';
+const RAW   = 'https://raw.githubusercontent.com/' + REPO;
+
+// Palette threshold: commits before this use old 32-colour palette (no metadata.json)
+const OLD_PALETTE_THRESHOLD = new Date('2024-04-02T21:34:56Z');
+const RECORDING_START = new Date('2023-06-30T15:47:38Z');
+
+const OLD_PALETTE = [
+  0x6d011bff, 0xbd0038ff, 0xff4500ff, 0xffa800ff, 0xffd636ff, 0xfff8b9ff,
+  0x00a468ff, 0x00cc77ff, 0x7fed56ff, 0x00756fff, 0x009eaaff, 0x00ccc0ff,
+  0x2350a3ff, 0x368fe9ff, 0x51e9f4ff, 0x4a3ac1ff, 0x6b5cffff, 0x93b3feff,
+  0x811e9fff, 0xb34ac0ff, 0xe5abffff, 0xde107fff, 0xff3881ff, 0xff98a9ff,
+  0x6d482eff, 0x9c6927ff, 0xffb470ff, 0x000000ff, 0x515352ff, 0x898d90ff,
+  0xd3d7daff, 0xffffffff,
+];
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let currentCommit   = null;   // { sha, date, index }
+let commitList      = [];     // ordered list for nav
+let currentScale    = 1;
+let lastImageData   = null;   // for download
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const dateInput    = document.getElementById('dateInput');
+const timeInput    = document.getElementById('timeInput');
+const goBtn        = document.getElementById('goBtn');
+const infoRow      = document.getElementById('infoRow');
+const progressWrap = document.getElementById('progressWrap');
+const progressText = document.getElementById('progressText');
+const progressFill = document.getElementById('progressFill');
+const errorMsg     = document.getElementById('errorMsg');
+const viewer       = document.getElementById('viewer');
+const renderCanvas = document.getElementById('renderCanvas');
+const canvasWrap   = document.getElementById('canvasWrap');
+const zoomBadge    = document.getElementById('zoomBadge');
+const pixelInspector = document.getElementById('pixelInspector');
+const viewerMeta   = document.getElementById('viewerMeta');
+const prevBtn      = document.getElementById('prevBtn');
+const nextBtn      = document.getElementById('nextBtn');
+
+// ── Logo pixel art ────────────────────────────────────────────────────────────
+const PALETTE_HEX = [
+  '#ff4500','#ffa800','#ffd636','#00a468','#2350a3',
+  '#6b5cff','#811e9f','#ff3881','#6d482e','#000000',
+  '#515352','#898d90','#d3d7da','#ffffff','#00cc77','#51e9f4',
+];
+const LOGO_PIXELS = [
+  3,14,2,15,1,
+  13,4, 5,6, 7,
+  8,10,9,11,12,
+  0, 0,13,3,2,
+  14,1, 5,0, 4,
+];
+
+(function buildLogo() {
+  const grid = document.getElementById('logoGrid');
+  LOGO_PIXELS.forEach(i => {
+    const d = document.createElement('div');
+    d.style.background = PALETTE_HEX[i % PALETTE_HEX.length];
+    grid.appendChild(d);
+  });
+})();
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+const PRESETS = [
+  { label: 'Day 1 start',  date: '2023-06-30', time: '16:00' },
+  { label: 'July 4th',     date: '2023-07-04', time: '12:00' },
+  { label: 'July 11th',    date: '2023-07-11', time: '00:00' },
+  { label: 'Late 2023',    date: '2023-12-01', time: '12:00' },
+  { label: 'Early 2024',   date: '2024-01-15', time: '12:00' },
+  { label: 'New palette',  date: '2024-04-03', time: '00:00' },
+  { label: 'Mid 2024',     date: '2024-07-01', time: '12:00' },
+];
+
+(function buildPresets() {
+  const wrap = document.getElementById('presets');
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.textContent = p.label;
+    btn.onclick = () => {
+      dateInput.value = p.date;
+      timeInput.value = p.time;
+      go();
+    };
+    wrap.appendChild(btn);
+  });
+})();
+
+// ── GitHub API helpers ─────────────────────────────────────────────────────────
+function ghHeaders() {
+  const token = localStorage.getItem('ghToken');
+  const h = { 'Accept': 'application/vnd.github+json' };
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
+
+async function ghFetch(url) {
+  const r = await fetch(url, { headers: ghHeaders() });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(`GitHub ${r.status}: ${j.message || r.statusText} — ${url}`);
+  }
+  return r.json();
+}
+
+/**
+ * Find the closest commit to a given UTC date.
+ * Uses the GitHub commits API with `until` to get the latest commit at or before the target.
+ */
+async function findClosestCommit(targetDate) {
+  setProgress(20, 'Querying GitHub commit history…');
+
+  // GitHub's `until` param is inclusive — gets commits up to and including this time
+  const until = targetDate.toISOString();
+  const url = `${API}/repos/${REPO}/commits?until=${until}&per_page=1`;
+  const data = await ghFetch(url);
+
+  if (!data.length) {
+    throw new Error('No commits found at or before that date. Try a later date (recording started 2023-06-30).');
+  }
+
+  const c = data[0];
+  return {
+    sha:      c.sha,
+    shortSha: c.sha.slice(0, 7),
+    date:     new Date(c.commit.committer.date),
+    message:  c.commit.message,
+  };
+}
+
+/**
+ * Load a small window of commits around a target for prev/next navigation.
+ * We load `per_page=10` commits ending at the target, then 10 after.
+ */
+async function loadCommitWindow(targetSha, targetDate) {
+  // Commits BEFORE + including target
+  const before = await ghFetch(
+    `${API}/repos/${REPO}/commits?until=${targetDate.toISOString()}&per_page=6`
+  );
+  // Commits AFTER target (since = exclusive so use +1ms)
+  const afterDate = new Date(targetDate.getTime() + 1);
+  const after  = await ghFetch(
+    `${API}/repos/${REPO}/commits?since=${afterDate.toISOString()}&per_page=4`
+  );
+
+  // Merge: before is newest-first, after is oldest-first; we want oldest-first
+  const all = [
+    ...after.reverse(),
+    ...before,
+  ].map((c, idx) => ({
+    sha:      c.sha,
+    shortSha: c.sha.slice(0, 7),
+    date:     new Date(c.commit.committer.date),
+    message:  c.commit.message,
+  }));
+
+  // Deduplicate
+  const seen = new Set();
+  const deduped = all.filter(c => { if (seen.has(c.sha)) return false; seen.add(c.sha); return true; });
+
+  // Sort ascending
+  deduped.sort((a,b) => a.date - b.date);
+
+  commitList = deduped;
+  const idx = deduped.findIndex(c => c.sha === targetSha);
+  return idx === -1 ? 0 : idx;
+}
+
+// ── Canvas rendering ──────────────────────────────────────────────────────────
+
+/**
+ * Fetch raw bytes from a GitHub tree without going through the API.
+ * Uses raw.githubusercontent.com which is unmetered vs API.
+ */
+async function fetchRawFile(sha, path) {
+  const url = `${RAW}/${sha}/${path}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Failed to fetch ${path} @ ${sha.slice(0,7)}: ${r.status}`);
+  return r;
+}
+
+async function renderCommit(commit) {
+  setProgress(50, `Fetching canvas data @ ${commit.shortSha}…`);
+
+  const isOldPalette = commit.date < OLD_PALETTE_THRESHOLD;
+
+  // Fetch `place` binary
+  const placeRes = await fetchRawFile(commit.sha, 'place');
+  const placeBuffer = await placeRes.arrayBuffer();
+  const board = new Uint8Array(placeBuffer);
+
+  setProgress(75, 'Parsing metadata…');
+
+  let width, height, palette;
+
+  if (isOldPalette) {
+    // Old format: square canvas, palette hardcoded
+    const side = Math.round(Math.sqrt(board.length));
+    width  = side;
+    height = side;
+    palette = OLD_PALETTE;
+  } else {
+    // New format: metadata.json exists
+    const metaRes = await fetchRawFile(commit.sha, 'metadata.json');
+    const meta    = await metaRes.json();
+    width   = meta.width;
+    height  = meta.height;
+    palette = meta.palette;
+  }
+
+  setProgress(88, 'Rendering pixels…');
+
+  // Draw onto canvas
+  renderCanvas.width  = width;
+  renderCanvas.height = height;
+  const ctx = renderCanvas.getContext('2d');
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+
+  for (let i = 0; i < board.length; i++) {
+    const rgba = palette[board[i]] >>> 0;
+    const base = i * 4;
+    // Palette is 0xRRGGBBAA
+    data[base]   = (rgba >>> 24) & 0xff;
+    data[base+1] = (rgba >>> 16) & 0xff;
+    data[base+2] = (rgba >>>  8) & 0xff;
+    data[base+3] = rgba & 0xff;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  lastImageData = { board, width, height, palette };
+
+  return { width, height, palette };
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setProgress(pct, msg) {
+  progressWrap.style.display = 'block';
+  progressText.textContent = msg;
+  progressFill.style.width = pct + '%';
+}
+
+function hideProgress() {
+  progressWrap.style.display = 'none';
+  progressFill.style.width = '0%';
+}
+
+function showError(msg) {
+  errorMsg.style.display = 'block';
+  errorMsg.textContent = '⚠ ' + msg;
+}
+
+function hideError() {
+  errorMsg.style.display = 'none';
+}
+
+function setBadge(id, text, type = '') {
+  const el = document.getElementById('badge-' + id);
+  el.textContent = text;
+  el.className = 'badge' + (type ? ' ' + type : '');
+}
+
+function updateNavButtons() {
+  if (!currentCommit) return;
+  prevBtn.disabled = currentCommit.index <= 0;
+  nextBtn.disabled = currentCommit.index >= commitList.length - 1;
+}
+
+function updateScale(s) {
+  currentScale = Math.max(0.1, Math.min(20, s));
+  renderCanvas.style.width  = (renderCanvas.width  * currentScale) + 'px';
+  renderCanvas.style.height = (renderCanvas.height * currentScale) + 'px';
+  zoomBadge.textContent = Math.round(currentScale * 100) + '%';
+}
+
+function fitToWrap() {
+  const ww = canvasWrap.clientWidth  - 32;
+  const wh = canvasWrap.clientHeight > 100 ? canvasWrap.clientHeight - 32 : window.innerHeight * 0.55;
+  const sx = ww / renderCanvas.width;
+  const sy = wh / renderCanvas.height;
+  updateScale(Math.min(sx, sy, 4));
+}
+
+// ── Main flow ─────────────────────────────────────────────────────────────────
+async function go() {
+  const dateVal = dateInput.value;
+  const timeVal = timeInput.value || '00:00';
+
+  if (!dateVal) { showError('Please pick a date.'); return; }
+
+  const target = new Date(`${dateVal}T${timeVal}:00Z`);
+  if (isNaN(target)) { showError('Invalid date/time.'); return; }
+
+  if (target < RECORDING_START) {
+    showError('rplace.live only started recording on 2023-06-30. Try a later date.');
+    return;
+  }
+
+  hideError();
+  goBtn.disabled = true;
+  infoRow.style.display = 'none';
+  viewer.classList.remove('visible');
+  setProgress(5, 'Looking up commit…');
+
+  try {
+    const commit = await findClosestCommit(target);
+    setProgress(35, `Found commit ${commit.shortSha} — loading window…`);
+
+    const idx = await loadCommitWindow(commit.sha, commit.date);
+    currentCommit = { ...commit, index: idx };
+
+    const { width, height, palette } = await renderCommit(commit);
+
+    setProgress(95, 'Done!');
+
+    // Delta between requested and actual
+    const deltaMs = Math.abs(target - commit.date);
+    const deltaStr = formatDelta(deltaMs);
+
+    // Update info row
+    infoRow.style.display = 'flex';
+    setBadge('commit', commit.shortSha, 'active');
+    setBadge('date',   fmtDate(commit.date), '');
+    setBadge('size',   `${width}×${height}`, 'ok');
+    setBadge('delta',  '±' + deltaStr, deltaMs < 3600000 ? 'ok' : 'warn');
+
+    // Viewer meta
+    viewerMeta.innerHTML = `
+      <strong>${fmtDate(commit.date)}</strong> &nbsp;·&nbsp;
+      ${commit.shortSha} &nbsp;·&nbsp;
+      ${width}×${height}px &nbsp;·&nbsp;
+      ${palette.length} colours
+    `;
+
+    // Show viewer & fit
+    viewer.classList.add('visible');
+    setTimeout(fitToWrap, 50);
+
+    updateNavButtons();
+    hideProgress();
+
+  } catch(e) {
+    hideProgress();
+    showError(e.message);
+    console.error(e);
+  } finally {
+    goBtn.disabled = false;
+  }
+}
+
+async function loadAndRender(commit, idx) {
+  hideError();
+  goBtn.disabled = true;
+  setProgress(10, `Loading commit ${commit.shortSha}…`);
+  try {
+    const { width, height, palette } = await renderCommit(commit);
+    currentCommit = { ...commit, index: idx };
+    viewerMeta.innerHTML = `
+      <strong>${fmtDate(commit.date)}</strong> &nbsp;·&nbsp;
+      ${commit.shortSha} &nbsp;·&nbsp;
+      ${width}×${height}px &nbsp;·&nbsp;
+      ${palette.length} colours
+    `;
+    setBadge('commit', commit.shortSha, 'active');
+    setBadge('date',   fmtDate(commit.date), '');
+    setBadge('size',   `${width}×${height}`, 'ok');
+    setBadge('delta',  '', '');
+    updateNavButtons();
+    setTimeout(fitToWrap, 50);
+    hideProgress();
+  } catch(e) {
+    hideProgress();
+    showError(e.message);
+  } finally {
+    goBtn.disabled = false;
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+prevBtn.onclick = () => {
+  if (!currentCommit || currentCommit.index <= 0) return;
+  const idx = currentCommit.index - 1;
+  loadAndRender(commitList[idx], idx);
+};
+
+nextBtn.onclick = () => {
+  if (!currentCommit || currentCommit.index >= commitList.length - 1) return;
+  const idx = currentCommit.index + 1;
+  loadAndRender(commitList[idx], idx);
+};
+
+// ── Zoom controls ─────────────────────────────────────────────────────────────
+document.getElementById('zoomIn').onclick  = () => updateScale(currentScale * 1.5);
+document.getElementById('zoomOut').onclick = () => updateScale(currentScale / 1.5);
+document.getElementById('zoomFit').onclick = fitToWrap;
+
+// Mouse wheel zoom
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.15 : 1/1.15;
+  updateScale(currentScale * factor);
+}, { passive: false });
+
+// ── Pixel inspector ───────────────────────────────────────────────────────────
+canvasWrap.addEventListener('mousemove', e => {
+  if (!lastImageData) return;
+  const rect = renderCanvas.getBoundingClientRect();
+  const px = Math.floor((e.clientX - rect.left) / currentScale);
+  const py = Math.floor((e.clientY - rect.top)  / currentScale);
+  const { board, width, height, palette } = lastImageData;
+
+  if (px < 0 || py < 0 || px >= width || py >= height) {
+    pixelInspector.style.display = 'none';
+    return;
+  }
+
+  const idx   = py * width + px;
+  const ci    = board[idx];
+  const rgba  = palette[ci] >>> 0;
+  const r = (rgba >>> 24) & 0xff;
+  const g = (rgba >>> 16) & 0xff;
+  const b = (rgba >>>  8) & 0xff;
+  const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('').toUpperCase();
+
+  pixelInspector.innerHTML = `
+    <span style="display:inline-block;width:10px;height:10px;background:${hex};border:1px solid #fff5;margin-right:5px;vertical-align:middle;"></span>
+    (${px}, ${py}) &nbsp; palette[${ci}] &nbsp; ${hex}
+  `;
+
+  // Position relative to canvasWrap
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  let lx = e.clientX - wrapRect.left + 16;
+  let ly = e.clientY - wrapRect.top  + 16;
+  // nudge if too close to right edge
+  if (lx + 220 > canvasWrap.clientWidth)  lx -= 230;
+  if (ly + 40  > canvasWrap.clientHeight) ly -= 50;
+
+  pixelInspector.style.left    = lx + 'px';
+  pixelInspector.style.top     = ly + 'px';
+  pixelInspector.style.display = 'block';
+});
+
+canvasWrap.addEventListener('mouseleave', () => {
+  pixelInspector.style.display = 'none';
+});
+
+// ── Download ──────────────────────────────────────────────────────────────────
+document.getElementById('downloadBtn').onclick = () => {
+  if (!currentCommit) return;
+  const a = document.createElement('a');
+  a.href = renderCanvas.toDataURL('image/png');
+  a.download = `rplace_${currentCommit.shortSha}_${currentCommit.date.toISOString().replace(/[:.]/g,'-')}.png`;
+  a.click();
+};
+
+// ── Enter key ─────────────────────────────────────────────────────────────────
+[dateInput, timeInput].forEach(el => {
+  el.addEventListener('keydown', e => { if(e.key === 'Enter') go(); });
+});
+
+goBtn.onclick = go;
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function fmtDate(d) {
+  return d.toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+
+function formatDelta(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60)   return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60)   return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24)   return h + 'h ' + (m % 60) + 'm';
+  const dd = Math.floor(h / 24);
+  return dd + 'd ' + (h % 24) + 'h';
+}
+
+// ── Init: set sensible default date ──────────────────────────────────────────
+const now = new Date();
+// Default to a known-good point in history so the page isn't empty
+// If today is after recording start, just use "now minus 1 year" or recording start+1day
+const defaultDate = new Date(Math.max(
+  new Date('2023-07-01').getTime(),
+  Math.min(now.getTime() - 86400000, now.getTime())
+));
+// Don't override hardcoded value since we set it in HTML already
+</script>
+</body>
+</html>
